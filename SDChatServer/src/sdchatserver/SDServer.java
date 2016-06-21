@@ -57,7 +57,11 @@ public abstract class SDServer extends Server {
     
     @Override
     public void processClosedConnection(String pClientIP, int pClientPort) {
-        //this.sendToAll("S");
+        User u = getUser(pClientIP, pClientPort);
+        userDisconnected(u);
+        sendToAllBut("291"+u.username, u);
+        user.remove(u);
+       
     }
     
     public User getUser(String ip, int port) {
@@ -189,6 +193,7 @@ public abstract class SDServer extends Server {
        // get text Message from user
         if (u.loggedIn) {
             sendToAllBut(m, u);
+            ok(u);
             gotText(m, u);
         }
         else
@@ -227,7 +232,6 @@ public abstract class SDServer extends Server {
     public abstract void userLoggedIn(User u);
     public abstract void userOpensConnection(User u);
     public abstract void userDisconnected(User u);
-    public abstract void errorWithUser(User u);
     public abstract void errorWithUser(User u, String errorMsg);
     
     
