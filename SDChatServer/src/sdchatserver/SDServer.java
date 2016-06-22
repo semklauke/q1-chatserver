@@ -6,6 +6,7 @@
 package sdchatserver;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.FileReader;
 import java.lang.reflect.Method;
 import java.util.LinkedList;
@@ -19,12 +20,110 @@ public abstract class SDServer extends Server {
     
     
     public List <User> user;
-   
+    public IncomingMessages messagesHelper; 
     
     public SDServer(int pPortNr) {
         super(pPortNr);
         user = new LinkedList<User>();
+        messagesHelper = new IncomingMessages();
         
+    }
+    
+    public class IncomingMessages {
+        public void MSG_260(String m, User u) {
+            try {
+                //Check if username is in databas
+                BufferedReader in = new BufferedReader(new FileReader("logins.txt"));
+                String line;
+                while((line = in.readLine()) != null) {
+                    String splitLine[] = line.split(";");
+                    if (splitLine[0].equals(m)) {
+                        u.setUsername(m);
+                        ok(u);
+                        return;
+                    }
+                }
+                error(u, "User Not In Database");
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                System.out.println("loginFile Error");
+                error(u, "Couldn't Read Database");
+                return;
+            }
+        }
+
+        public void MSG_261(String m, User u) {
+            //Check password
+            try {
+                BufferedReader in = new BufferedReader(new FileReader("logins.txt"));
+                String line;
+                while((line = in.readLine()) != null) {
+                    String splitLine[] = line.split(";");
+                    if (splitLine[0].equals(u.username) && splitLine[1].equals(m)) {
+                        sendToUser(u, "262"); // send logend In
+                        sendToAllBut("290"+u.username, u);
+                        u.loggedIn = true;
+                        userLoggedIn(u);
+                        return;
+                    }
+                }
+                error(u, "Password Incorrect");
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                System.out.println("loginFile Error");
+                error(u, "Couldn't Read Database");
+                return;
+            }
+
+        }
+
+        public void MSG_270(String m, User u) { 
+            if (u.loggedIn) {
+                String reString = "271";
+                for (User usr : user) {
+                    if (usr.username != null && usr.loggedIn)
+                        reString += usr.username+";";
+                }
+                sendToUser(u, reString);
+            }
+        }
+
+
+        public void MSG_280(String m, User u) {
+           // get text Message from user
+            if (u.loggedIn) {
+                sendToAllBut("280"+u.username+";"+m, u);
+                gotText(m, u);
+            }
+            else
+                error(u, "User Not Logged In");
+        }
+
+        public void MSG_281(String m, User u) {
+            //get Private Message from user
+            if (u.loggedIn) {
+                String users[] = m.split(";");
+                if (users.length == 0)
+                    error(u, "No Destination(s) Selected/No Message");
+                else {
+                    int lastIndex = users.length-1;
+                    String msg = users[lastIndex];
+                    int c = 0;
+                    for (String un : users) {
+                        if (c == lastIndex)
+                            break;
+                        sendToUser(getUser(un), "281"+u.username+";"+msg);
+                        c++;
+                    }
+
+
+                    gotPrivateText(msg, u, users);
+                    ok(u);
+                }
+            } else
+                error(u, "User Not Logged In");
+
+        }
     }
     
     @Override
@@ -41,15 +140,16 @@ public abstract class SDServer extends Server {
         String msg = pMessage.substring(3);
       
         try {
-             Method method = this.getClass().getDeclaredMethod("MSG_" + number, new Class[] { String.class, User.class});
+             Method method = IncomingMessages.class.getDeclaredMethod("MSG_" + number, new Class[] { String.class, User.class});
              User u = this.getUser(pClientIP, pClientPort);
              if (u != null)
-                method.invoke(this, new Object[] {msg, u});
+                method.invoke(messagesHelper, new Object[] {msg, u});
              else
                 this.send(pClientIP, pClientPort, "400");
 
         } catch (Exception ex) {
             System.out.print("Methode Invoke Error");
+            System.out.print("Failed Message:" +msg);
             ex.printStackTrace();
         }
        
@@ -131,100 +231,7 @@ public abstract class SDServer extends Server {
         errorWithUser(u, errorMsg);
     }
     
-    
-    public void MSG_260(String m, User u) {
-        try {
-            //Check if username is in databas
-            BufferedReader in = new BufferedReader(new FileReader("logins.txt"));
-            String line;
-            while((line = in.readLine()) != null) {
-                String splitLine[] = line.split(";");
-                if (splitLine[0].equals(m)) {
-                    u.setUsername(m);
-                    ok(u);
-                    return;
-                }
-            }
-            error(u, "User Not In Database");
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            System.out.println("loginFile Error");
-            error(u, "Couldn't Read Database");
-            return;
-        }
-    }
-
-    public void MSG_261(String m, User u) {
-        //Check password
-        try {
-            BufferedReader in = new BufferedReader(new FileReader("logins.txt"));
-            String line;
-            while((line = in.readLine()) != null) {
-                String splitLine[] = line.split(";");
-                if (splitLine[0].equals(u.username) && splitLine[1].equals(m)) {
-                    sendToUser(u, "262"); // send logend In
-                    u.loggedIn = true;
-                    userLoggedIn(u);
-                    return;
-                }
-            }
-            error(u, "Password Incorrect");
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            System.out.println("loginFile Error");
-            error(u, "Couldn't Read Database");
-            return;
-        }
-
-    }
-
-    public void MSG_270(String m, User u) { 
-        if (u.loggedIn) {
-            String reString = "271";
-            for (User usr : user) {
-                if (usr.username != null && usr.loggedIn)
-                    reString += usr.username+";";
-            }
-        }
-    }
-
-
-    public void MSG_280(String m, User u) {
-       // get text Message from user
-        if (u.loggedIn) {
-            sendToAllBut(m, u);
-            ok(u);
-            gotText(m, u);
-        }
-        else
-            error(u, "User Not Logged In");
-    }
-
-    public void MSG_281(String m, User u) {
-        //get Private Message from user
-        if (u.loggedIn) {
-            String users[] = m.split(";");
-            if (users.length == 0)
-                error(u, "No Destination(s) Selected/No Message");
-            else {
-                int lastIndex = users.length-1;
-                String msg = users[lastIndex];
-                int c = 0;
-                for (String un : users) {
-                    if (c == lastIndex)
-                        break;
-                    sendToUser(getUser(un), "281"+u.username+";"+msg);
-                    c++;
-                }
-                
-                   
-                gotPrivateText(msg, u, users);
-                ok(u);
-            }
-        } else
-            error(u, "User Not Logged In");
-
-    }
+ 
     
     
     public abstract void gotText(String m, User u);

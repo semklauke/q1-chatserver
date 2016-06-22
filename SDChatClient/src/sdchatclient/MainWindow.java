@@ -5,7 +5,10 @@
  */
 package sdchatclient;
 
+import java.lang.reflect.Method;
+import java.util.List;
 import javax.swing.DefaultListModel;
+import javax.swing.DefaultListSelectionModel;
 import javax.swing.JButton;
 import javax.swing.JOptionPane;
 
@@ -30,9 +33,72 @@ public class MainWindow extends javax.swing.JFrame {
         initComponents();
         
         client = null;
+        clientList.setSelectionModel(new DefaultListSelectionModel() {
+            private static final long serialVersionUID = 1L;
+
+            boolean gestureStarted = false;
+
+            @Override
+            public void setSelectionInterval(int index0, int index1) {
+                if(!gestureStarted){
+                    if (isSelectedIndex(index0)) {
+                        super.removeSelectionInterval(index0, index1);
+                    } else {
+                    super.addSelectionInterval(index0, index1);
+            }
+        }
+        gestureStarted = true;
+    }
+
+    @Override
+    public void setValueIsAdjusting(boolean isAdjusting) {
+        if (isAdjusting == false) {
+            gestureStarted = false;
+        }
+    }
+
+});
         /*chatModel = new DefaultListModel();
         clientsModel = new DefaultListModel();*/
         
+    }
+    
+    public void txtMessage(String name, String msg, boolean self) {
+        String newMsg = self ? selfPrefix+" "+msg : name+": "+msg;
+        chatModel.addElement(newMsg);
+    }
+    
+    public void txtMessage(String name, String msg) {
+        txtMessage(name, msg, false);
+    }
+    
+    public void txtMessage(String msg) {
+        txtMessage(null, msg, true);
+    }
+    
+    public void privateMessage(String names[], String msg) {
+        
+        String newMsg = selfPrefix;
+        newMsg += " " + privatePrefix + " to ";
+        int i = 0;
+        for (String s : names) {
+            if (i==0)
+                newMsg += s;
+            if (i>0)
+                newMsg += ", "+s;
+            i++;
+        }
+        newMsg += ": "+msg;
+        chatModel.addElement(newMsg);
+    }
+    
+    public void privateMessage(String name, String msg) {
+        String newMsg = privatePrefix+ " "+name+": "+msg;
+        chatModel.addElement(newMsg);
+    }
+    
+    public void info(String info) {
+        chatModel.addElement(infoPrefix +" "+info);
     }
     
     private SDClient createClient() {
@@ -46,37 +112,45 @@ public class MainWindow extends javax.swing.JFrame {
 
             @Override
             public void userLoggedIn() {
-                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+                info("logged in");
+                send("270");
             }
 
             @Override
             public void gotClientList(String[] clients) {
-                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+                clientsModel.clear();
+                for (String c : clients) {
+                    clientsModel.addElement(c);
+                }
             }
 
             @Override
             public void gotText(String name, String msg) {
-                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+                txtMessage(name, msg);
             }
 
             @Override
             public void gotPrivateText(String name, String msg) {
-                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+                privateMessage(name, msg);
             }
 
             @Override
             public void gotServerError(String errorMsg) {
-                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+                System.out.println("Server Error: "+ errorMsg);
+                JOptionPane.showMessageDialog(null, "Server Error: \n"+errorMsg);
             }
 
             @Override
             public void userConnected(String name) {
-                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+                info("User "+name+" connected");
+                clientsModel.addElement(name);
             }
 
             @Override
             public void userDisconnected(String name) {
-                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+                info("User "+name+" disconnected");
+                clientsModel.removeElement(name);
+                
             }
         };
     }
@@ -90,6 +164,9 @@ public class MainWindow extends javax.swing.JFrame {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
+        chatModel = new DefaultListModel();
+        clientsModel = new DefaultListModel();
+
         userTextField = new javax.swing.JTextField();
         jLabel1 = new javax.swing.JLabel();
         jLabel2 = new javax.swing.JLabel();
@@ -101,12 +178,13 @@ public class MainWindow extends javax.swing.JFrame {
         connectButton = new javax.swing.JButton();
         jSeparator1 = new javax.swing.JSeparator();
         jScrollPane1 = new javax.swing.JScrollPane();
-        javax.swing.JList clientList = new javax.swing.JList();
+        clientList = new javax.swing.JList(clientsModel);
         jLabel5 = new javax.swing.JLabel();
         jSeparator2 = new javax.swing.JSeparator();
         jScrollPane2 = new javax.swing.JScrollPane();
-        chatList = new javax.swing.JList();
+        chatList = new javax.swing.JList(chatModel);
         sendButton = new javax.swing.JButton();
+        jLabel6 = new javax.swing.JLabel();
         messageField = new javax.swing.JTextField();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
@@ -120,12 +198,22 @@ public class MainWindow extends javax.swing.JFrame {
         jLabel3.setFont(new java.awt.Font("Tahoma", 0, 12)); // NOI18N
         jLabel3.setText("Adresse:");
 
+        adressTextField.setMinimumSize(new java.awt.Dimension(15, 28));
+        adressTextField.setPreferredSize(new java.awt.Dimension(270, 28));
+        adressTextField.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                adressTextFieldActionPerformed(evt);
+            }
+        });
+
         jLabel4.setFont(new java.awt.Font("Tahoma", 0, 12)); // NOI18N
         jLabel4.setText("Status:");
 
         statusLable.setFont(new java.awt.Font("Arial", 0, 14)); // NOI18N
         statusLable.setForeground(new java.awt.Color(255, 0, 0));
         statusLable.setText("Offline");
+        statusLable.setFocusTraversalPolicyProvider(true);
+        statusLable.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
 
         connectButton.setText("Connect");
         connectButton.addActionListener(new java.awt.event.ActionListener() {
@@ -143,6 +231,7 @@ public class MainWindow extends javax.swing.JFrame {
         jSeparator2.setOrientation(javax.swing.SwingConstants.VERTICAL);
 
         chatList.setFont(new java.awt.Font("Arial", 0, 10)); // NOI18N
+        chatList.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
         jScrollPane2.setViewportView(chatList);
 
         sendButton.setText("Send");
@@ -151,6 +240,12 @@ public class MainWindow extends javax.swing.JFrame {
                 sendButtonActionPerformed(evt);
             }
         });
+
+        jLabel6.setFont(new java.awt.Font("Tahoma", 1, 11)); // NOI18N
+        jLabel6.setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+        jLabel6.setText("Chat");
+
+        messageField.setLocation(new java.awt.Point(1, 1));
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
@@ -162,36 +257,44 @@ public class MainWindow extends javax.swing.JFrame {
                     .addComponent(jSeparator1)
                     .addGroup(layout.createSequentialGroup()
                         .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(jLabel1)
-                            .addComponent(jLabel2))
-                        .addGap(18, 18, 18)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addComponent(passTextField, javax.swing.GroupLayout.DEFAULT_SIZE, 226, Short.MAX_VALUE)
-                            .addComponent(userTextField))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
                             .addGroup(layout.createSequentialGroup()
-                                .addComponent(jLabel3)
-                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                                .addComponent(adressTextField))
-                            .addGroup(layout.createSequentialGroup()
-                                .addComponent(jLabel4)
-                                .addGap(18, 18, 18)
-                                .addComponent(statusLable)
-                                .addGap(18, 18, 18)
-                                .addComponent(connectButton, javax.swing.GroupLayout.PREFERRED_SIZE, 160, javax.swing.GroupLayout.PREFERRED_SIZE))))
-                    .addGroup(layout.createSequentialGroup()
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                            .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
-                            .addComponent(jLabel5, javax.swing.GroupLayout.DEFAULT_SIZE, 96, Short.MAX_VALUE))
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jSeparator2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jScrollPane2))
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
-                        .addComponent(messageField)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(sendButton)))
+                                .addGap(6, 6, 6)
+                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                    .addGroup(layout.createSequentialGroup()
+                                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                                            .addComponent(jLabel1)
+                                            .addComponent(jLabel2))
+                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                            .addComponent(passTextField, javax.swing.GroupLayout.DEFAULT_SIZE, 226, Short.MAX_VALUE)
+                                            .addComponent(userTextField))
+                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                            .addGroup(layout.createSequentialGroup()
+                                                .addComponent(jLabel3)
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                                .addComponent(adressTextField, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                                            .addGroup(layout.createSequentialGroup()
+                                                .addComponent(jLabel4)
+                                                .addGap(18, 18, 18)
+                                                .addComponent(statusLable, javax.swing.GroupLayout.PREFERRED_SIZE, 58, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                                .addComponent(connectButton, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                                        .addGap(12, 12, 12))
+                                    .addGroup(layout.createSequentialGroup()
+                                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                            .addComponent(jLabel5, javax.swing.GroupLayout.PREFERRED_SIZE, 96, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                            .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 124, javax.swing.GroupLayout.PREFERRED_SIZE))
+                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                        .addComponent(jSeparator2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                            .addComponent(jLabel6, javax.swing.GroupLayout.PREFERRED_SIZE, 504, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                            .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                                                .addComponent(sendButton)
+                                                .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 495, javax.swing.GroupLayout.PREFERRED_SIZE))))))
+                            .addComponent(messageField, javax.swing.GroupLayout.PREFERRED_SIZE, 569, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addGap(0, 0, Short.MAX_VALUE)))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
@@ -217,14 +320,17 @@ public class MainWindow extends javax.swing.JFrame {
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(jLabel5)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 360, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 380, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addComponent(jSeparator2)
-                    .addComponent(jScrollPane2))
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(jLabel6, javax.swing.GroupLayout.PREFERRED_SIZE, 14, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jScrollPane2)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(sendButton)
-                    .addComponent(messageField, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(messageField, javax.swing.GroupLayout.PREFERRED_SIZE, 29, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(sendButton))
+                .addContainerGap(15, Short.MAX_VALUE))
         );
 
         pack();
@@ -248,12 +354,67 @@ public class MainWindow extends javax.swing.JFrame {
             
         } else {
             //disconnect
+            client.close();
+            
         }
     }//GEN-LAST:event_connectButtonActionPerformed
 
     private void sendButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_sendButtonActionPerformed
-        // TODO add your handling code here:
+        if (client == null)
+            return;
+        String input = messageField.getText();
+        
+        List v = clientList.getSelectedValuesList();
+        
+        if (v.isEmpty()) {
+            client.send("280"+input);
+            txtMessage(input);
+            messageField.setText("");
+        } else {
+            String newMsg = "281";
+            String[] destinations = new String[v.size()];
+            int i=0;
+            for (Object o : v) {
+                newMsg += o.toString() + ";";
+                destinations[i] = o.toString();
+                i++;
+            }
+            newMsg += input;
+            client.send(newMsg);
+            privateMessage(destinations, input);
+            messageField.setText("");
+        }
+        /*int[] selectedIx;
+        
+        try {
+          selectedIx  = clientList.getSelectedIndices();
+          String newMsg = "281";
+            String[] destinations = new String[selectedIx.length];
+            for (int i = 0; i < selectedIx.length; i++) {
+                String sel = clientList.getModel().getElementAt(selectedIx[i]).toString();
+                newMsg += sel + ";";
+                destinations[i] = sel;
+            }
+            newMsg += input;
+            client.send(newMsg);
+            privateMessage(destinations, input);
+            messageField.setText("");
+        } catch (Exception ex) {
+            
+        }*/
+        
+   
+        
+        
+        
+        
+        
+        
     }//GEN-LAST:event_sendButtonActionPerformed
+
+    private void adressTextFieldActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_adressTextFieldActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_adressTextFieldActionPerformed
 
     /**
      * @param args the command line arguments
@@ -293,12 +454,14 @@ public class MainWindow extends javax.swing.JFrame {
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JTextField adressTextField;
     private javax.swing.JList chatList;
+    private javax.swing.JList clientList;
     private javax.swing.JButton connectButton;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
+    private javax.swing.JLabel jLabel6;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JSeparator jSeparator1;
