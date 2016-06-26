@@ -5,6 +5,8 @@
  */
 package sdchatclient;
 
+import java.awt.Color;
+import static java.lang.Math.abs;
 import java.lang.reflect.Method;
 import java.util.List;
 import javax.swing.DefaultListModel;
@@ -25,9 +27,11 @@ public class MainWindow extends javax.swing.JFrame {
     private SDClient client;
     private DefaultListModel chatModel;
     private DefaultListModel clientsModel;
-    protected String infoPrefix = "[!]";
-    protected String privatePrefix = "[P]";
-    protected String selfPrefix = ">>";
+    protected String[] colors = {"#91580f", "#f8a700", "#f78b00","#58dc00", "#287b00", "#a8f07a", "#4ae8c4", "#3b88eb", "CA38BE", 
+    "#21610B", "#3824aa", "#a700ff", "#d300e7", "#2E2EFE", "#FFFF00", "#81F781", "#2E64FE"};
+    protected String infoPrefix = "<span style='font-weight:bold;'>";
+    protected String privatePrefix = "<span style='font-weight:bold;'>[P]</span>";
+    protected String selfPrefix = "<span style='font-weight:bold;'>>></span>";
     
     public MainWindow() {
         initComponents();
@@ -63,9 +67,22 @@ public class MainWindow extends javax.swing.JFrame {
         
     }
     
+    public String getColorForName(String name) {
+        int summ = 0;
+        int hash = 7;
+        for(char c : name.toCharArray()) 
+            summ =(int)c + (summ << 5) - summ;
+        summ = abs(summ);
+        return colors[(summ%colors.length)];
+    }
+    
+    public String wrapHtml(String s) {
+        return "<html>"+s+"</html>";
+    }
+    
     public void txtMessage(String name, String msg, boolean self) {
-        String newMsg = self ? selfPrefix+" "+msg : name+": "+msg;
-        chatModel.addElement(newMsg);
+        String clientMsg = self ? selfPrefix+" "+msg : "<span style='color: "+getColorForName(name)+";'>"+name+"</span>: "+msg;
+        chatModel.addElement(wrapHtml(clientMsg));
     }
     
     public void txtMessage(String name, String msg) {
@@ -82,23 +99,24 @@ public class MainWindow extends javax.swing.JFrame {
         newMsg += " " + privatePrefix + " to ";
         int i = 0;
         for (String s : names) {
+            String c = getColorForName(s);
             if (i==0)
-                newMsg += s;
+                newMsg += "<span style='color:"+c+";'>"+s+"</span>";
             if (i>0)
-                newMsg += ", "+s;
+                newMsg += ", "+"<span style='color:"+c+";'>"+s+"</span>";
             i++;
         }
         newMsg += ": "+msg;
-        chatModel.addElement(newMsg);
+        chatModel.addElement(wrapHtml(newMsg));
     }
     
     public void privateMessage(String name, String msg) {
-        String newMsg = privatePrefix+ " "+name+": "+msg;
-        chatModel.addElement(newMsg);
+        String newMsg = privatePrefix+ " <span style='color: "+getColorForName(name)+";'>"+name+"</span>: "+msg;
+        chatModel.addElement(wrapHtml(newMsg));
     }
     
     public void info(String info) {
-        chatModel.addElement(infoPrefix +" "+info);
+        chatModel.addElement(wrapHtml(infoPrefix +" "+info+"</span>"));
     }
     
     private SDClient createClient() {
@@ -114,13 +132,17 @@ public class MainWindow extends javax.swing.JFrame {
             public void userLoggedIn() {
                 info("logged in");
                 send("270");
+                statusLable.setText("Online");
+                statusLable.setForeground(Color.green);
+
             }
 
             @Override
             public void gotClientList(String[] clients) {
                 clientsModel.clear();
                 for (String c : clients) {
-                    clientsModel.addElement(c);
+                    String n = "<span style='color: "+getColorForName(c)+";'>"+c+"</span>";
+                    clientsModel.addElement(wrapHtml(n));
                 }
             }
 
@@ -142,14 +164,16 @@ public class MainWindow extends javax.swing.JFrame {
 
             @Override
             public void userConnected(String name) {
-                info("User "+name+" connected");
-                clientsModel.addElement(name);
+                String n = "<span style='color: "+getColorForName(name)+"';>"+name+"</span>";
+                info(n+" connected");
+                clientsModel.addElement(wrapHtml(n));
             }
 
             @Override
             public void userDisconnected(String name) {
-                info("User "+name+" disconnected");
-                clientsModel.removeElement(name);
+                String n = "<span style='color: "+getColorForName(name)+"';>"+name+"</span>";
+                info(n+" disconnected");
+                clientsModel.removeElement(wrapHtml(n));
                 
             }
         };
@@ -230,7 +254,7 @@ public class MainWindow extends javax.swing.JFrame {
 
         jSeparator2.setOrientation(javax.swing.SwingConstants.VERTICAL);
 
-        chatList.setFont(new java.awt.Font("Arial", 0, 10)); // NOI18N
+        chatList.setFont(new java.awt.Font("Helvetica", 0, 12)); // NOI18N
         chatList.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
         jScrollPane2.setViewportView(chatList);
 
@@ -375,40 +399,24 @@ public class MainWindow extends javax.swing.JFrame {
             String[] destinations = new String[v.size()];
             int i=0;
             for (Object o : v) {
-                newMsg += o.toString() + ";";
-                destinations[i] = o.toString();
+                String name = o.toString().substring(36);
+                System.out.println("name: "+name+"/end/");
+                String finalName = "";
+                for (int j=0; j<name.length(); j++) {
+                    if (name.charAt(j) != '<')
+                        finalName += name.charAt(j);
+                    else
+                        break;
+                }
+                newMsg += finalName + ";";
+                destinations[i] = finalName;
                 i++;
             }
             newMsg += input;
             client.send(newMsg);
             privateMessage(destinations, input);
             messageField.setText("");
-        }
-        /*int[] selectedIx;
-        
-        try {
-          selectedIx  = clientList.getSelectedIndices();
-          String newMsg = "281";
-            String[] destinations = new String[selectedIx.length];
-            for (int i = 0; i < selectedIx.length; i++) {
-                String sel = clientList.getModel().getElementAt(selectedIx[i]).toString();
-                newMsg += sel + ";";
-                destinations[i] = sel;
-            }
-            newMsg += input;
-            client.send(newMsg);
-            privateMessage(destinations, input);
-            messageField.setText("");
-        } catch (Exception ex) {
-            
-        }*/
-        
-   
-        
-        
-        
-        
-        
+        }  
         
     }//GEN-LAST:event_sendButtonActionPerformed
 
